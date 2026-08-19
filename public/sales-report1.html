@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>销售详情1 动态对照工具 —— SalesDetail.vue 计算过程</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif; background:#f0f2f5; color:#333; padding:20px; }
+.wrap { max-width:1700px; margin:0 auto; }
+h1 { font-size:20px; margin-bottom:6px; }
+.sub { color:#666; font-size:13px; margin-bottom:16px; }
+.card { background:#fff; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,.08); padding:18px 20px; margin-bottom:18px; }
+.card h2 { font-size:16px; border-left:4px solid #1890ff; padding-left:10px; margin-bottom:14px; }
+.card h2.pipe { border-left-color:#722ed1; }
+.card h2.tab { border-left-color:#13c2c2; }
+.note { background:#fffbe6; border:1px solid #ffe58f; border-radius:6px; padding:10px 14px; font-size:13px; line-height:1.9; margin-bottom:14px; }
+.note b { color:#ad6800; }
+.note .warn { color:#cf1322; font-weight:600; }
+.fml { font-family:'Consolas',monospace; font-size:12px; background:#fafafa; border:1px solid #eee; padding:2px 6px; border-radius:3px; color:#c0392b; }
+table { border-collapse:collapse; font-size:12px; width:100%; }
+.th-wrap { overflow-x:auto; }
+th, td { border:1px solid #e0e0e0; padding:6px 5px; text-align:center; white-space:nowrap; }
+th { background:#f5f5f5; font-weight:600; position:sticky; top:0; z-index:5; }
+.c-code { min-width:82px; }
+.c-name { min-width:170px; text-align:left !important; }
+.c-num { font-family:'Consolas','Segoe UI',monospace; }
+.col-sales { background:#fff3e0 !important; }
+.col-profit { background:#e8f5e9 !important; }
+.col-customer { background:#e3f2fd !important; }
+.col-price { background:#fce4ec !important; }
+.col-yoy { background:#f3e5f5 !important; }
+.col-mom { background:#ede7f6 !important; }
+.subtotal { background:linear-gradient(90deg,#fff59d,#fff9c4) !important; font-weight:700; }
+.subtotal td { border-top:2px solid #f57f17 !important; border-bottom:2px solid #f57f17 !important; }
+.total { background:linear-gradient(90deg,#ffd54f,#ffca28) !important; font-weight:800; }
+.total td { border-top:2px solid #e65100 !important; border-bottom:3px double #bf360c !important; }
+.rate-up { color:#d32f2f; font-weight:500; }
+.rate-down { color:#388e3c; font-weight:500; }
+/* ===== 控制区 ===== */
+.controls { display:flex; flex-wrap:wrap; gap:16px 28px; align-items:flex-end; }
+.ctl-group { display:flex; flex-direction:column; gap:4px; }
+.ctl-group .lbl { font-size:12px; color:#555; font-weight:600; }
+.ctl-group .dates { display:flex; gap:6px; align-items:center; font-size:12px; color:#888; }
+.ctl-group input[type="date"], .ctl-group input[type="text"] {
+  border:1px solid #d9d9d9; border-radius:4px; padding:5px 8px; font-size:13px; font-family:inherit; color:#333; background:#fff;
+}
+.ctl-group input[type="date"]:focus, .ctl-group input[type="text"]:focus { outline:none; border-color:#1890ff; box-shadow:0 0 0 2px rgba(24,144,255,.15); }
+.btn { border:none; border-radius:4px; padding:8px 18px; font-size:14px; cursor:pointer; font-family:inherit; }
+.btn-primary { background:#1890ff; color:#fff; }
+.btn-primary:hover { background:#40a9ff; }
+.btn-primary:disabled { background:#91d5ff; cursor:not-allowed; }
+.btn-default { background:#fff; color:#333; border:1px solid #d9d9d9; }
+.btn-default:hover { border-color:#1890ff; color:#1890ff; }
+#status { margin-top:10px; font-size:13px; color:#888; }
+#status.err { color:#cf1322; font-weight:600; }
+#status.ok { color:#2e7d32; font-weight:600; }
+.meta-line { font-size:12px; color:#888; margin-top:8px; }
+details.summary-card summary { cursor:pointer; font-weight:600; color:#555; font-size:13px; padding:4px 0; }
+details.summary-card summary:hover { color:#1890ff; }
+.step { font-size:13px; line-height:2; }
+.step .arrow { color:#1890ff; font-weight:700; }
+.tag { display:inline-block; padding:2px 10px; border-radius:4px; font-size:12px; margin-right:8px; }
+.tag-blue { background:#e3f2fd; color:#1565c0; }
+.tag-orange { background:#fff3e0; color:#e65100; }
+.tag-green { background:#e8f5e9; color:#2e7d32; }
+.tag-purple { background:#f3e5f5; color:#722ed1; }
+.tag-red { background:#ffebee; color:#cf1322; }
+table.fml-table td, table.fml-table th { text-align:left; padding:7px 10px; }
+.fml-table td.c { font-family:'Consolas',monospace; color:#c0392b; }
+.backtop { float:right; font-size:12px; color:#1890ff; text-decoration:none; }
+.spin { display:inline-block; width:14px; height:14px; border:2px solid #91d5ff; border-top-color:#1890ff; border-radius:50%; animation:sp 1s linear infinite; vertical-align:-2px; margin-right:6px; }
+@keyframes sp { to { transform:rotate(360deg); } }
+/* ===== 流水线步骤 ===== */
+.pipe-steps { display:flex; flex-direction:column; gap:0; }
+.pipe-step { position:relative; padding:10px 14px 10px 46px; border:1px solid #e8e8e8; border-radius:6px; margin-bottom:10px; background:#fafafa; }
+.pipe-step .num { position:absolute; left:10px; top:10px; width:26px; height:26px; border-radius:50%; background:#722ed1; color:#fff; font-weight:700; font-size:13px; display:flex; align-items:center; justify-content:center; }
+.pipe-step h3 { font-size:13px; margin-bottom:4px; color:#333; }
+.pipe-step .detail { font-size:12px; color:#555; line-height:1.9; }
+.pipe-step .detail b { color:#333; }
+.pipe-step.ok { border-color:#b7eb8f; background:#fcffe6; }
+.pipe-step.warn { border-color:#ffd591; background:#fff7e6; }
+.pipe-step .res { font-size:12px; color:#2e7d32; font-weight:600; }
+.pipe-step .res.err { color:#cf1322; }
+.call-tbl td.ok { color:#2e7d32; font-weight:600; }
+.call-tbl td.err { color:#cf1322; font-weight:600; }
+/* ===== 接口原始值表（组装过程用，供与数据库逐字段对比） ===== */
+.raw-tbl { margin:6px 0 12px; font-size:12px; width:auto; min-width:560px; border:1px solid #d9d9d9; }
+.raw-tbl th { background:#f0f5ff; }
+.raw-tbl th, .raw-tbl td { padding:3px 10px; text-align:left; white-space:nowrap; position:static; }
+.raw-tbl td.f { color:#555; min-width:110px; }
+.raw-tbl td.v { font-family:'Consolas',monospace; color:#1d39c4; }
+.raw-tbl td.src-tag { color:#888; font-size:11px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>「销售详情1」动态对照工具</h1>
+<div class="sub">选择日期 → 自动调用 <span class="fml">provider/sales/detail</span> <b>6 遍</b>（明细 deptLevels×2 日期组 + 部门合计 + 超市总计）→ 按 <b>SalesDetail.vue 完全相同的逻辑</b>组装表格并画出每一步计算过程，哪里不对一眼可查</div>
+
+<!-- ========== 控制区 ========== -->
+<div class="card">
+  <h2>查询条件（默认日期动态计算：本期=前一天，环比=前两天，同比=去年的今天）</h2>
+  <div class="controls">
+    <div class="ctl-group">
+      <span class="lbl">本期（开始 / 结束）</span>
+      <div class="dates">
+        <input type="date" id="curStart" value="2026-08-10">
+        <span>至</span>
+        <input type="date" id="curEnd" value="2026-08-10">
+      </div>
+    </div>
+    <div class="ctl-group">
+      <span class="lbl">环比对比期（开始 / 结束）</span>
+      <div class="dates">
+        <input type="date" id="momStart" value="2026-08-11">
+        <span>至</span>
+        <input type="date" id="momEnd" value="2026-08-11">
+      </div>
+    </div>
+    <div class="ctl-group">
+      <span class="lbl">同比对比期（开始 / 结束）</span>
+      <div class="dates">
+        <input type="date" id="yoyStart" value="2026-08-11">
+        <span>至</span>
+        <input type="date" id="yoyEnd" value="2026-08-11">
+      </div>
+    </div>
+    <div class="ctl-group">
+      <span class="lbl">机构编码（留空=全部）</span>
+      <input type="text" id="orgCode" value="1101001" style="width:110px">
+    </div>
+    <div class="ctl-group">
+      <span class="lbl">部门层级（默认 3=三级明细，勿留空）</span>
+      <input type="text" id="deptLevels" value="3" style="width:60px">
+    </div>
+    <div class="ctl-group" style="flex-direction:row; gap:8px;">
+      <button class="btn btn-default" id="btnCalc">一键推算同比/环比</button>
+      <button class="btn btn-primary" id="btnQuery">查询对照</button>
+      <button class="btn btn-default" id="btnExport">导出CSV</button>
+    </div>
+  </div>
+  <div id="status">就绪。默认日期已按规则自动填好（本期=前一天、环比=前两天、同比=去年的今天），点「查询对照」触发 6 遍并发调用并重建页面数据。</div>
+  <div class="meta-line" id="metaLine"></div>
+</div>
+
+<!-- ========== 查询逻辑（可折叠） ========== -->
+<div class="card">
+  <details class="summary-card">
+    <summary>① 查询逻辑 —— SalesDetail.vue 为什么调 6 遍接口（点击展开）</summary>
+    <div class="note" style="margin-top:10px;">
+      <b>页面同时需要三类数据：明细 / 部门小计 / 超市总计</b>。后端没有"一次返回全部"的接口，而是通过 <span class="fml">deptLevels</span> 传不同值分别取：
+      <span class="fml">3=三级部门明细</span>、<span class="fml">2=二级部门合计</span>、<span class="fml">不传=机构汇总 1 行（即超市总计，正常与 deptLevels=1 的超市行一致）</span>。<br>
+      每一类又需要两组对比日期（环比 moM / 同比 yoY 各自作为 <span class="fml">cmpStartDate/cmpEndDate</span>），因此共 <b>3 类 × 2 组日期 = 6 遍调用</b>。
+    </div>
+    <table class="fml-table">
+      <tr><th>#</th><th>用途</th><th>deptLevels</th><th>cmp 日期组</th><th>返回数据赋给</th></tr>
+      <tr><td>1</td><td>本期明细（环比列）</td><td class="c">3（或用户输入值）</td><td class="c">环比开始/结束</td><td class="c">apiData → sourceData</td></tr>
+      <tr><td>2</td><td>本期明细（同比列）</td><td class="c">3（或用户输入值）</td><td class="c">同比开始/结束</td><td class="c">apiDataYoY → 按部门编码3 映射</td></tr>
+      <tr><td>3</td><td>部门小计（环比）</td><td class="c">2（固定）</td><td class="c">环比开始/结束</td><td class="c">deptSummary（去行政部）</td></tr>
+      <tr><td>4</td><td>超市总计（环比）</td><td class="c">空（不传 → 机构汇总）</td><td class="c">环比开始/结束</td><td class="c">storeTotal（取第一行）</td></tr>
+      <tr><td>5</td><td>部门小计（同比）</td><td class="c">2（固定）</td><td class="c">同比开始/结束</td><td class="c">deptSummaryYoY（去行政部）</td></tr>
+      <tr><td>6</td><td>超市总计（同比）</td><td class="c">空（不传 → 机构汇总）</td><td class="c">同比开始/结束</td><td class="c">storeTotalYoY（取第一行）</td></tr>
+    </table>
+  </details>
+</div>
+
+<!-- ========== 计算逻辑（可折叠） ========== -->
+<div class="card">
+  <details class="summary-card">
+    <summary>② 计算逻辑 —— 页面用到的公式（点击展开）</summary>
+    <div class="step" style="margin-top:10px;">
+      <span class="tag tag-blue">直接取值</span>
+      销售额 ← <span class="fml">销售金额</span>；毛利额 ← <span class="fml">含税毛利</span>；毛利率 ← <span class="fml">毛利率</span>；来客数 ← <span class="fml">交易笔数</span>；客单价 ← <span class="fml">客单价</span><br>
+      <span class="tag tag-purple">环比列（第 1 遍调用）</span>
+      销售额/毛利额增长率 ← 接口 <span class="fml">销售额增长率/毛利额增长率</span>（后端已算好）；<br>
+      来客数增长率 = <span class="fml">(交易笔数 − 对期交易笔数) ÷ 对期交易笔数 × 100</span>；客单价增长率 = <span class="fml">(客单价 − 对期客单价) ÷ 对期客单价 × 100</span><br>
+      <span class="tag tag-green">同比列（第 2 遍调用）</span>
+      同理，但取同比日期那次调用（第 2 遍）的字段，<b>按「部门编码3」映射到明细行</b>（两次查询行数/顺序可能不同，不能按下标取）<br>
+      <span class="tag tag-orange">增长率精度</span>
+      接口增长率字段用 <span class="fml">pct2 = Math.round(n×100)÷100</span>；前端自算增长率用 <span class="fml">Number(((cur−prior)÷|prior|×100).toFixed(2))</span>
+    </div>
+  </details>
+</div>
+
+<!-- ========== ① 数据获取过程 ========== -->
+<div class="card">
+  <h2 class="pipe">一、数据获取过程 —— 6 遍接口调用实时清单<a class="backtop" href="#top">↑ 顶部</a></h2>
+  <div class="note">每次查询后自动更新。若某遍返回 0 行或失败，会以红色标记，直接定位是哪一遍出了问题。</div>
+  <div class="th-wrap">
+    <table class="call-tbl">
+      <thead>
+        <tr><th>#</th><th>用途</th><th>deptLevels</th><th>cmp 日期组</th><th>orgCode</th><th>返回行数</th><th>状态</th><th>备注</th></tr>
+      </thead>
+      <tbody id="callBody"><tr><td colspan="8" style="color:#aaa;padding:20px;">尚未查询</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ========== ② 组装过程 ========== -->
+<div class="card">
+  <h2 class="pipe">二、组装过程 —— 从 6 遍返回 → 页面表格（逐步骤）<a class="backtop" href="#top">↑ 顶部</a></h2>
+  <div class="note">流水线完全复刻 <span class="fml">SalesDetail.vue</span> 的 <span class="fml">sourceData → tableData</span> 逻辑。每步显示实时统计，异常步骤（如某部门组回退累加、总计回退累加）会以橙色高亮。</div>
+  <div class="pipe-steps" id="pipeSteps">
+    <div class="pipe-step"><div class="num">1</div><h3>过滤行政部</h3><div class="detail">尚未查询</div></div>
+    <div class="pipe-step"><div class="num">2</div><h3>明细行构建 + 同比映射</h3><div class="detail">尚未查询</div></div>
+    <div class="pipe-step"><div class="num">3</div><h3>按部组分组（生鲜一部/生鲜二部/食品部/非食部）</h3><div class="detail">尚未查询</div></div>
+    <div class="pipe-step"><div class="num">4</div><h3>部门小计组装</h3><div class="detail">尚未查询</div></div>
+    <div class="pipe-step"><div class="num">5</div><h3>超市总计组装</h3><div class="detail">尚未查询</div></div>
+  </div>
+</div>
+
+<!-- ========== ③ 结果表格 ========== -->
+<div class="card">
+  <h2 class="tab">三、结果表格 —— 与 SalesDetail.vue 页面逐列一致（15 列）<a class="backtop" href="#top">↑ 顶部</a></h2>
+  <div class="note" id="tabNote">每组明细末尾为<b>黄色「XX 合计」行</b>（优先取 deptLevels=2 接口行，找不到则按明细累加），最后为<b>深黄「超市总计」行</b>（优先取 deptLevels 不传的机构汇总行）。<span class="warn">红涨绿跌</span>。</div>
+  <div class="th-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>机构名称</th><th>部组名称</th><th>部门编码</th><th>部门名称</th>
+          <th class="col-sales">销售额/元</th>
+          <th class="col-yoy">同比<br>销售额增长率</th><th class="col-mom">环比<br>销售额增长率</th>
+          <th class="col-profit">毛利额/元</th>
+          <th class="col-yoy">同比<br>毛利额增长率</th><th class="col-mom">环比<br>毛利额增长率</th>
+          <th class="col-profit">毛利率</th>
+          <th class="col-customer">来客数</th>
+          <th class="col-yoy">同比<br>来客数增长率</th><th class="col-mom">环比<br>来客数增长率</th>
+          <th class="col-price">客单价/元</th>
+          <th class="col-yoy">同比<br>客单价增长率</th><th class="col-mom">环比<br>客单价增长率</th>
+        </tr>
+      </thead>
+      <tbody id="tabBody"><tr><td colspan="17" style="color:#aaa;padding:20px;">尚未查询</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ========== 差异说明 ========== -->
+<div class="card">
+  <h2>四、排查提示（重要）</h2>
+  <div class="note">
+    1. <b>「部门层级」不能留空（明细查询）</b>：实测 orgCode=1101001 时，deptLevels 不传/空串 → 接口只返回 <b>1 行机构汇总</b>（部门字段全空），明细表格会变空。页面默认 3、兜底 3，务必保持。<b>但总计那两遍（第 4/6 遍）正是利用这个机构汇总行</b>，固定不传 deptLevels。<br>
+    2. <b>小计/总计不随部门层级变</b>：即使把部门层级改成 1 或 2，小计仍取 deptLevels=2、总计仍固定不传 deptLevels（机构汇总）—— 这是页面「部门合计模式」的结构依赖。<br>
+    3. <b>同比映射按部门编码3</b>：同比那遍调用与环比那遍调用的行数/顺序可能不同，页面按 <span class="fml">部门编码3</span> 建映射取同比三列，不按下标。<br>
+    4. <b>行政部剔除</b>：小计接口行中 <span class="fml">部门名称2 = 行政部</span> 的行被过滤，不参与合计（总计行是机构汇总，无部门字段，不受影响）。<br>
+    5. <b>回退累加</b>：若 deptLevels=2 中找不到「生鲜一部」等部组行（或 deptLevels 不传无机构汇总行），页面回退为明细行累加 + 反推对期值计算增长率 —— 此时组装过程面板第 4/5 步会显示橙色告警。
+  </div>
+</div>
+
+</div><!-- /.wrap -->
+
+<script>
+/* ================== 工具函数（与 SalesDetail.vue 完全一致） ================== */
+function num(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return isNaN(n) ? null : n;
+}
+function pct2(v) { const n = num(v); return n === null ? null : Math.round(n * 100) / 100; }
+function calcRate(cur, prior) { if (!prior || prior === 0) return 0; return Number((((cur - prior) / Math.abs(prior)) * 100).toFixed(2)); }
+function momRate(cur, prior) { const c = num(cur), p = num(prior); if (c === null || p === null) return null; return calcRate(c, p); }
+function priorValue(current, rate) { if (rate == null) return current; return current / (1 + rate / 100); }
+function sum(rows, field) { return rows.reduce(function (s, r) { return s + (Number(r[field]) || 0); }, 0); }
+function hasAny(rows, field) { return rows.some(function (r) { return r[field] !== null && r[field] !== undefined; }); }
+function getDeptGroup(code) {
+  if (!code) return '';
+  const prefix = String(code).substring(0, 2);
+  const map = { '11': '生鲜一部', '12': '生鲜二部', '13': '食品部', '15': '非食部' };
+  return map[prefix] || '';
+}
+function fmtDate(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function calcYoy(dateStr) { const d = new Date(dateStr + 'T00:00:00'); d.setDate(d.getDate() + 1); d.setFullYear(d.getFullYear() - 1); return fmtDate(d); }
+function calcMom(dateStr) { const d = new Date(dateStr + 'T00:00:00'); d.setDate(d.getDate() - 1); return fmtDate(d); }
+
+/* ================== 默认日期（动态计算，不写死，与 SalesDetail.vue 一致） ==================
+   规则：本期 = 当天的前一天；环比 = 当天的前两天（本期前一天）；同比 = 去年的今天 */
+function applyDefaultDates() {
+  const now = new Date();
+  const prev = new Date(now); prev.setDate(now.getDate() - 1);        // 前一天 → 本期
+  const prev2 = new Date(now); prev2.setDate(now.getDate() - 2);      // 前两天 → 环比
+  const lastYear = new Date(now); lastYear.setFullYear(now.getFullYear() - 1); // 去年的今天 → 同比
+  document.getElementById('curStart').value = fmtDate(prev);
+  document.getElementById('curEnd').value = fmtDate(prev);
+  document.getElementById('momStart').value = fmtDate(prev2);
+  document.getElementById('momEnd').value = fmtDate(prev2);
+  document.getElementById('yoyStart').value = fmtDate(lastYear);
+  document.getElementById('yoyEnd').value = fmtDate(lastYear);
+}
+applyDefaultDates();
+
+/* ================== 格式化（与页面一致） ================== */
+function esc(s) { if (s === null || s === undefined) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function formatAmount(n) { if (n === undefined || n === null) return ''; return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function formatRate(val) { if (val === undefined || val === null) return ''; const prefix = val > 0 ? '+' : ''; return prefix + Number(val).toFixed(2) + '%'; }
+function formatPct(val) { if (val === undefined || val === null) return ''; return val + '%'; }
+function getRateClass(val) { if (val === undefined || val === null) return ''; if (val > 0) return ' rate-up'; if (val < 0) return ' rate-down'; return ''; }
+
+/* ================== 请求封装 ================== */
+async function fetchApi(deptLevels, cmpStart, cmpEnd, orgCode) {
+  const p = new URLSearchParams();
+  p.set('tenantId', '8');
+  p.set('startDate', document.getElementById('curStart').value);
+  p.set('endDate', document.getElementById('curEnd').value);
+  p.set('cmpStartDate', cmpStart);
+  p.set('cmpEndDate', cmpEnd);
+  p.set('orgCode', orgCode);
+  p.set('showStore', '显示门店');
+  if (deptLevels) p.set('deptLevels', deptLevels);   // 留空则不发送（= 页面行为：请求封装过滤空值）→ 后端返回机构汇总
+  const res = await fetch('/api/provider/sales/detail?' + p.toString());
+  if (!res.ok) {
+    const txt = await res.text().catch(function () { return ''; });
+    throw new Error('HTTP ' + res.status + (txt ? '：' + txt.slice(0, 120) : ''));
+  }
+  return res.json();
+}
+
+/* ================== 行构建（与 SalesDetail.vue 完全一致） ================== */
+function buildRowFromApi(ar, deptName, isSubtotal, isTotal, yoyAr) {
+  return {
+    orgName: '', deptGroup: '', deptCode: '', deptName: deptName,
+    salesAmount: num(ar['销售金额']),
+    salesYoY: yoyAr ? pct2(yoyAr['销售额增长率']) : null,
+    salesMoM: pct2(ar['销售额增长率']),
+    profitAmount: num(ar['含税毛利']),
+    profitYoY: yoyAr ? pct2(yoyAr['毛利额增长率']) : null,
+    profitMoM: pct2(ar['毛利额增长率']),
+    profitRate: pct2(ar['毛利率']),
+    customers: num(ar['交易笔数']),
+    customerYoY: yoyAr ? momRate(yoyAr['交易笔数'], yoyAr['对期交易笔数']) : null,
+    customerMoM: momRate(ar['交易笔数'], ar['对期交易笔数']),
+    avgPrice: num(ar['客单价']),
+    avgPriceYoY: yoyAr ? momRate(yoyAr['客单价'], yoyAr['对期客单价']) : null,
+    avgPriceMoM: momRate(ar['客单价'], ar['对期客单价']),
+    isSubtotal: !!isSubtotal, isTotal: !!isTotal
+  };
+}
+
+function buildSubtotalBySum(rows, g) {
+  const curSales = sum(rows, 'salesAmount');
+  const curProfit = sum(rows, 'profitAmount');
+  const curCustomers = sum(rows, 'customers');
+  const priorYoY = { sales: 0, profit: 0, customers: 0 };
+  const priorMoM = { sales: 0, profit: 0, customers: 0 };
+  for (const r of rows) {
+    priorYoY.sales += priorValue(r.salesAmount, r.salesYoY);
+    priorYoY.profit += priorValue(r.profitAmount, r.profitYoY);
+    priorYoY.customers += priorValue(r.customers, r.customerYoY);
+    priorMoM.sales += priorValue(r.salesAmount, r.salesMoM);
+    priorMoM.profit += priorValue(r.profitAmount, r.profitMoM);
+    priorMoM.customers += priorValue(r.customers, r.customerMoM);
+  }
+  const profitRate = curSales > 0 ? Number(((curProfit / curSales) * 100).toFixed(2)) : 0;
+  const avgPrice = curCustomers > 0 ? Math.round(curSales / curCustomers) : 0;
+  const salesYoY = hasAny(rows, 'salesYoY') ? calcRate(curSales, priorYoY.sales) : null;
+  const salesMoM = calcRate(curSales, priorMoM.sales);
+  const profitYoY = hasAny(rows, 'profitYoY') ? calcRate(curProfit, priorYoY.profit) : null;
+  const profitMoM = calcRate(curProfit, priorMoM.profit);
+  const customerYoY = hasAny(rows, 'customerYoY') ? calcRate(curCustomers, priorYoY.customers) : null;
+  const customerMoM = calcRate(curCustomers, priorMoM.customers);
+  const priorAvgPriceYoY = priorYoY.customers > 0 ? (priorYoY.sales / priorYoY.customers) : 0;
+  const priorAvgPriceMoM = priorMoM.customers > 0 ? (priorMoM.sales / priorMoM.customers) : 0;
+  const avgPriceYoY = hasAny(rows, 'avgPriceYoY') && priorAvgPriceYoY > 0 ? calcRate(avgPrice, priorAvgPriceYoY) : null;
+  const avgPriceMoM = priorAvgPriceMoM > 0 ? calcRate(avgPrice, priorAvgPriceMoM) : 0;
+  return {
+    orgName: '', deptGroup: '', deptCode: '', deptName: g + ' 合计',
+    salesAmount: curSales, salesYoY: salesYoY, salesMoM: salesMoM,
+    profitAmount: curProfit, profitYoY: profitYoY, profitMoM: profitMoM,
+    profitRate: profitRate, customers: curCustomers, customerYoY: customerYoY, customerMoM: customerMoM,
+    avgPrice: avgPrice, avgPriceYoY: avgPriceYoY, avgPriceMoM: avgPriceMoM,
+    isSubtotal: true
+  };
+}
+
+function buildTotalBySum(detailRows) {
+  const tSales = sum(detailRows, 'salesAmount');
+  const tProfit = sum(detailRows, 'profitAmount');
+  const tCustomers = sum(detailRows, 'customers');
+  const tPriorYoY = { sales: 0, profit: 0, customers: 0 };
+  const tPriorMoM = { sales: 0, profit: 0, customers: 0 };
+  for (const r of detailRows) {
+    tPriorYoY.sales += priorValue(r.salesAmount, r.salesYoY);
+    tPriorYoY.profit += priorValue(r.profitAmount, r.profitYoY);
+    tPriorYoY.customers += priorValue(r.customers, r.customerYoY);
+    tPriorMoM.sales += priorValue(r.salesAmount, r.salesMoM);
+    tPriorMoM.profit += priorValue(r.profitAmount, r.profitMoM);
+    tPriorMoM.customers += priorValue(r.customers, r.customerMoM);
+  }
+  const tProfitRate = tSales > 0 ? Number(((tProfit / tSales) * 100).toFixed(2)) : 0;
+  const tAvgPrice = tCustomers > 0 ? Math.round(tSales / tCustomers) : 0;
+  const tSalesYoY = hasAny(detailRows, 'salesYoY') ? calcRate(tSales, tPriorYoY.sales) : null;
+  const tSalesMoM = calcRate(tSales, tPriorMoM.sales);
+  const tProfitYoY = hasAny(detailRows, 'profitYoY') ? calcRate(tProfit, tPriorYoY.profit) : null;
+  const tProfitMoM = calcRate(tProfit, tPriorMoM.profit);
+  const tCustomerYoY = hasAny(detailRows, 'customerYoY') ? calcRate(tCustomers, tPriorYoY.customers) : null;
+  const tCustomerMoM = calcRate(tCustomers, tPriorMoM.customers);
+  const tPriorAvgPriceYoY = tPriorYoY.customers > 0 ? (tPriorYoY.sales / tPriorYoY.customers) : 0;
+  const tPriorAvgPriceMoM = tPriorMoM.customers > 0 ? (tPriorMoM.sales / tPriorMoM.customers) : 0;
+  const tAvgPriceYoY = hasAny(detailRows, 'avgPriceYoY') && tPriorAvgPriceYoY > 0 ? calcRate(tAvgPrice, tPriorAvgPriceYoY) : null;
+  const tAvgPriceMoM = tPriorAvgPriceMoM > 0 ? calcRate(tAvgPrice, tPriorAvgPriceMoM) : 0;
+  return {
+    orgName: '', deptGroup: '', deptCode: '', deptName: '超市总计',
+    salesAmount: tSales, salesYoY: tSalesYoY, salesMoM: tSalesMoM,
+    profitAmount: tProfit, profitYoY: tProfitYoY, profitMoM: tProfitMoM,
+    profitRate: tProfitRate, customers: tCustomers, customerYoY: tCustomerYoY, customerMoM: tCustomerMoM,
+    avgPrice: tAvgPrice, avgPriceYoY: tAvgPriceYoY, avgPriceMoM: tAvgPriceMoM,
+    isTotal: true
+  };
+}
+
+/* ================== 渲染 ================== */
+function setStatus(msg, cls) {
+  const el = document.getElementById('status');
+  el.className = cls || '';
+  el.innerHTML = cls === 'err' ? '⚠️ ' + esc(msg) : esc(msg);
+}
+
+function renderCalls(calls) {
+  const rows = calls.map(function (c, i) {
+    const okCls = c.error ? ' class="err"' : (c.rows > 0 ? ' class="ok"' : ' class="err"');
+    return '<tr><td>' + (i + 1) + '</td><td>' + esc(c.name) + '</td><td>' + (c.deptLevels === '' ? '<b style="color:#722ed1;">不传</b>' : esc(c.deptLevels)) + '</td><td>' +
+      esc(c.cmpStart) + ' ~ ' + esc(c.cmpEnd) + '</td><td>' + esc(c.orgCode) + '</td><td>' +
+      (c.error ? '-' : c.rows) + '</td><td' + okCls + '>' + (c.error ? '失败' : (c.rows > 0 ? '成功' : '0行')) + '</td><td>' + esc(c.note || '') + '</td></tr>';
+  });
+  document.getElementById('callBody').innerHTML = rows.join('');
+}
+
+function pipeStepHtml(no, title, detailHtml, cls) {
+  return '<div class="pipe-step ' + (cls || '') + '"><div class="num">' + no + '</div><h3>' + title + '</h3><div class="detail">' + detailHtml + '</div></div>';
+}
+
+/* 接口原始值表：把来源行的原始字段值逐项画出，供与数据库对比
+   src = 环比那遍的命中行，yoySrc = 同比那遍的命中行，fields = 要展示的原始字段 */
+function rawRowTable(src, yoySrc, fields, srcTagA, srcTagB) {
+  let h = '<table class="raw-tbl"><tr><th>接口原始字段</th><th>' + (srcTagA || '环比行') + '</th><th>' + (srcTagB || '同比行') + '</th></tr>';
+  for (const f of fields) {
+    const a = (src && src[f] !== null && src[f] !== undefined) ? String(src[f]) : '';
+    const b = (yoySrc && yoySrc[f] !== null && yoySrc[f] !== undefined) ? String(yoySrc[f]) : '';
+    h += '<tr><td class="f">' + esc(f) + '</td><td class="v">' + esc(a) + '</td><td class="v">' + esc(b) + '</td></tr>';
+  }
+  return h + '</table>';
+}
+
+function renderTable(outRows) {
+  const html = outRows.map(function (r) {
+    if (r.isTotal) {
+      return '<tr class="total"><td colspan="4" style="text-align:center;font-weight:800;letter-spacing:2px;">' + esc(r.deptName) + '</td>' +
+        '<td class="c-num col-sales">' + formatAmount(r.salesAmount) + '</td>' +
+        '<td class="c-num col-yoy' + getRateClass(r.salesYoY) + '">' + formatRate(r.salesYoY) + '</td>' +
+        '<td class="c-num col-mom' + getRateClass(r.salesMoM) + '">' + formatRate(r.salesMoM) + '</td>' +
+        '<td class="c-num col-profit">' + formatAmount(r.profitAmount) + '</td>' +
+        '<td class="c-num col-yoy' + getRateClass(r.profitYoY) + '">' + formatRate(r.profitYoY) + '</td>' +
+        '<td class="c-num col-mom' + getRateClass(r.profitMoM) + '">' + formatRate(r.profitMoM) + '</td>' +
+        '<td class="c-num col-profit">' + formatPct(r.profitRate) + '</td>' +
+        '<td class="c-num col-customer">' + formatAmount(r.customers) + '</td>' +
+        '<td class="c-num col-yoy' + getRateClass(r.customerYoY) + '">' + formatRate(r.customerYoY) + '</td>' +
+        '<td class="c-num col-mom' + getRateClass(r.customerMoM) + '">' + formatRate(r.customerMoM) + '</td>' +
+        '<td class="c-num col-price">' + formatAmount(r.avgPrice) + '</td>' +
+        '<td class="c-num col-yoy' + getRateClass(r.avgPriceYoY) + '">' + formatRate(r.avgPriceYoY) + '</td>' +
+        '<td class="c-num col-mom' + getRateClass(r.avgPriceMoM) + '">' + formatRate(r.avgPriceMoM) + '</td></tr>';
+    }
+    if (r.isSubtotal) {
+      return '<tr class="subtotal"><td colspan="4" style="text-align:center;font-weight:700;letter-spacing:2px;">' + esc(r.deptName) + '</td>' +
+        '<td class="c-num col-sales">' + formatAmount(r.salesAmount) + '</td>' +
+        '<td class="c-num col-yoy' + getRateClass(r.salesYoY) + '">' + formatRate(r.salesYoY) + '</td>' +
+        '<td class="c-num col-mom' + getRateClass(r.salesMoM) + '">' + formatRate(r.salesMoM) + '</td>' +
+        '<td class="c-num col-profit">' + formatAmount(r.profitAmount) + '</td>' +
+        '<td class="c-num col-yoy' + getRateClass(r.profitYoY) + '">' + formatRate(r.profitYoY) + '</td>' +
+        '<td class="c-num col-mom' + getRateClass(r.profitMoM) + '">' + formatRate(r.profitMoM) + '</td>' +
+        '<td class="c-num col-profit">' + formatPct(r.profitRate) + '</td>' +
+        '<td class="c-num col-customer">' + formatAmount(r.customers) + '</td>' +
+        '<td class="c-num col-yoy' + getRateClass(r.customerYoY) + '">' + formatRate(r.customerYoY) + '</td>' +
+        '<td class="c-num col-mom' + getRateClass(r.customerMoM) + '">' + formatRate(r.customerMoM) + '</td>' +
+        '<td class="c-num col-price">' + formatAmount(r.avgPrice) + '</td>' +
+        '<td class="c-num col-yoy' + getRateClass(r.avgPriceYoY) + '">' + formatRate(r.avgPriceYoY) + '</td>' +
+        '<td class="c-num col-mom' + getRateClass(r.avgPriceMoM) + '">' + formatRate(r.avgPriceMoM) + '</td></tr>';
+    }
+    return '<tr><td>' + esc(r.orgName) + '</td><td>' + esc(r.deptGroup) + '</td><td class="c-code">' + esc(r.deptCode) + '</td><td class="c-name">' + esc(r.deptName) + '</td>' +
+      '<td class="c-num col-sales">' + formatAmount(r.salesAmount) + '</td>' +
+      '<td class="c-num col-yoy' + getRateClass(r.salesYoY) + '">' + formatRate(r.salesYoY) + '</td>' +
+      '<td class="c-num col-mom' + getRateClass(r.salesMoM) + '">' + formatRate(r.salesMoM) + '</td>' +
+      '<td class="c-num col-profit">' + formatAmount(r.profitAmount) + '</td>' +
+      '<td class="c-num col-yoy' + getRateClass(r.profitYoY) + '">' + formatRate(r.profitYoY) + '</td>' +
+      '<td class="c-num col-mom' + getRateClass(r.profitMoM) + '">' + formatRate(r.profitMoM) + '</td>' +
+      '<td class="c-num col-profit">' + formatPct(r.profitRate) + '</td>' +
+      '<td class="c-num col-customer">' + formatAmount(r.customers) + '</td>' +
+      '<td class="c-num col-yoy' + getRateClass(r.customerYoY) + '">' + formatRate(r.customerYoY) + '</td>' +
+      '<td class="c-num col-mom' + getRateClass(r.customerMoM) + '">' + formatRate(r.customerMoM) + '</td>' +
+      '<td class="c-num col-price">' + formatAmount(r.avgPrice) + '</td>' +
+      '<td class="c-num col-yoy' + getRateClass(r.avgPriceYoY) + '">' + formatRate(r.avgPriceYoY) + '</td>' +
+      '<td class="c-num col-mom' + getRateClass(r.avgPriceMoM) + '">' + formatRate(r.avgPriceMoM) + '</td></tr>';
+  });
+  document.getElementById('tabBody').innerHTML = html.join('');
+}
+
+/* ================== 主流程 ================== */
+document.getElementById('btnCalc').addEventListener('click', function () {
+  const cur = document.getElementById('curStart').value;
+  if (!cur) { setStatus('请先填写「本期开始」日期', 'err'); return; }
+  const yoy = calcYoy(cur), mom = calcMom(cur);
+  document.getElementById('yoyStart').value = yoy;
+  document.getElementById('yoyEnd').value = yoy;
+  document.getElementById('momStart').value = mom;
+  document.getElementById('momEnd').value = mom;
+  setStatus('已推算：同比（去年的今天）' + yoy + '，环比（本期前一天）' + mom + '。可修改后点「查询对照」。', 'ok');
+});
+
+async function query() {
+  const btn = document.getElementById('btnQuery');
+  btn.disabled = true;
+  setStatus('<span class="spin"></span>正在 6 遍并发调用接口…');
+  const orgCode = document.getElementById('orgCode').value.trim();
+  const deptLv = document.getElementById('deptLevels').value.trim() || '3';
+  const momS = document.getElementById('momStart').value, momE = document.getElementById('momEnd').value;
+  const yoyS = document.getElementById('yoyStart').value, yoyE = document.getElementById('yoyEnd').value;
+
+  const calls = [
+    { name: '本期明细（环比列）', deptLevels: deptLv, cmpStart: momS, cmpEnd: momE, orgCode: orgCode, note: '→ apiData' },
+    { name: '本期明细（同比列）', deptLevels: deptLv, cmpStart: yoyS, cmpEnd: yoyE, orgCode: orgCode, note: '→ apiDataYoY' },
+    { name: '部门小计（环比）', deptLevels: '2', cmpStart: momS, cmpEnd: momE, orgCode: orgCode, note: '→ deptSummary（去行政部）' },
+    { name: '超市总计（环比）', deptLevels: '', cmpStart: momS, cmpEnd: momE, orgCode: orgCode, note: '→ storeTotal（机构汇总，取第一行）' },
+    { name: '部门小计（同比）', deptLevels: '2', cmpStart: yoyS, cmpEnd: yoyE, orgCode: orgCode, note: '→ deptSummaryYoY（去行政部）' },
+    { name: '超市总计（同比）', deptLevels: '', cmpStart: yoyS, cmpEnd: yoyE, orgCode: orgCode, note: '→ storeTotalYoY（机构汇总，取第一行）' }
+  ];
+
+  try {
+    const results = await Promise.all(calls.map(function (c) {
+      return fetchApi(c.deptLevels, c.cmpStart, c.cmpEnd, c.orgCode)
+        .then(function (data) { c.data = data; c.rows = Array.isArray(data) ? data.length : -1; return c; })
+        .catch(function (e) { c.error = e.message; c.rows = -1; return c; });
+    }));
+    renderCalls(calls);
+    const anyErr = calls.some(function (c) { return c.error; });
+    if (anyErr) {
+      const bad = calls.filter(function (c) { return c.error; }).map(function (c) { return '第' + (calls.indexOf(c) + 1) + '遍(' + c.name + ')'; }).join('、');
+      throw new Error('有调用失败：' + bad);
+    }
+
+    const detail = calls[0].data, detailYoY = calls[1].data;
+    const lv2 = calls[2].data, lv1 = calls[3].data, lv2YoY = calls[4].data, lv1YoY = calls[5].data;
+
+    /* ---- ① 过滤行政部 ---- */
+    const deptSummary = lv2 ? lv2.filter(function (r) { return r['部门名称2'] !== '行政部'; }) : null;
+    const storeTotal = lv1 ? lv1.filter(function (r) { return r['部门名称1'] !== '行政部'; }) : null;
+    const deptSummaryYoY = lv2YoY ? lv2YoY.filter(function (r) { return r['部门名称2'] !== '行政部'; }) : null;
+    const storeTotalYoY = lv1YoY ? lv1YoY.filter(function (r) { return r['部门名称1'] !== '行政部'; }) : null;
+
+    /* ---- ② 明细行构建 + 同比映射（sourceData） ---- */
+    const yoyByCode = new Map();
+    for (const r of (detailYoY || [])) {
+      const code = r['部门编码3'];
+      if (code !== null && code !== undefined && !yoyByCode.has(String(code))) yoyByCode.set(String(code), r);
+    }
+    const source = (detail || []).map(function (ar) {
+      const deptCode = ar['部门编码3'] ?? null;
+      const y = deptCode !== null && deptCode !== undefined ? yoyByCode.get(String(deptCode)) : undefined;
+      return {
+        orgName: ar['机构名称'] ?? null,
+        deptGroup: getDeptGroup(deptCode),
+        deptCode: deptCode,
+        deptName: ar['部门名称3'] ?? null,
+        salesAmount: num(ar['销售金额']),
+        salesMoM: pct2(ar['销售额增长率']),
+        profitAmount: num(ar['含税毛利']),
+        profitMoM: pct2(ar['毛利额增长率']),
+        profitRate: pct2(ar['毛利率']),
+        customers: num(ar['交易笔数']),
+        customerMoM: momRate(ar['交易笔数'], ar['对期交易笔数']),
+        avgPrice: num(ar['客单价']),
+        avgPriceMoM: momRate(ar['客单价'], ar['对期客单价']),
+        salesYoY: y ? pct2(y['销售额增长率']) : null,
+        profitYoY: y ? pct2(y['毛利额增长率']) : null,
+        customerYoY: y ? momRate(y['交易笔数'], y['对期交易笔数']) : null,
+        avgPriceYoY: y ? momRate(y['客单价'], y['对期客单价']) : null
+      };
+    });
+
+    /* ---- ③ 组装（tableData） ---- */
+    const groups = ['生鲜一部', '生鲜二部', '食品部', '非食部'];
+    const result = [];
+    const groupStats = [];
+    for (const g of groups) {
+      const rows = source.filter(function (r) { return r.deptGroup === g; });
+      if (!rows.length) continue;
+      for (const r of rows) result.push(r);
+      const src = (deptSummary || []).find(function (r) { return r['部门名称2'] === g; });
+      const yoySrc = (deptSummaryYoY || []).find(function (r) { return r['部门名称2'] === g; });
+      const fallback = !src;
+      const subtotal = src ? buildRowFromApi(src, g + ' 合计', true, false, yoySrc) : buildSubtotalBySum(rows, g);
+      result.push(subtotal);
+      groupStats.push({ g: g, n: rows.length, fallback: fallback, srcName: src ? src['部门名称2'] : null, src: src, yoySrc: yoySrc, codes: rows.map(function (r) { return r.deptCode; }) });
+    }
+    const allDetail = result.filter(function (r) { return !r.isSubtotal; });
+    const srcT = (storeTotal || []).find(function (r) { return r['部门名称1'] === '超市'; }) || (storeTotal || [])[0];
+    const yoySrcT = (storeTotalYoY || []).find(function (r) { return r['部门名称1'] === '超市'; }) || (storeTotalYoY || [])[0];
+    const totalFallback = !srcT;
+    const total = srcT ? buildRowFromApi(srcT, '超市总计', false, true, yoySrcT) : buildTotalBySum(allDetail);
+    result.push(total);
+
+    /* ---- 渲染过程面板 ---- */
+    const ungrouped = source.filter(function (r) { return !r.deptGroup; }).length;
+    const lv2Kept = deptSummary ? deptSummary.length : 0;
+    const lv1Kept = storeTotal ? storeTotal.length : 0;
+    const LV2_FIELDS = ['机构编码', '机构名称', '部门编码2', '部门名称2', '销售金额', '销售额增长率', '含税毛利', '毛利额增长率', '毛利率', '交易笔数', '对期交易笔数', '客单价', '对期客单价'];
+    const TOT_FIELDS = ['机构编码', '机构名称', '部门名称1', '销售金额', '销售额增长率', '含税毛利', '毛利额增长率', '毛利率', '交易笔数', '对期交易笔数', '客单价', '对期客单价'];
+    let pipe = '';
+    pipe += pipeStepHtml(1,
+      '过滤行政部',
+      'deptLevels=2 返回 ' + (lv2 ? lv2.length : 0) + ' 行 → 剔除行政部后 <b>' + lv2Kept + '</b> 行；deptLevels 不传（机构汇总）返回 ' + (lv1 ? lv1.length : 0) + ' 行 → 取 <b>' + lv1Kept + '</b> 行（同比两遍同理）',
+      lv2 && lv2Kept < lv2.length ? 'warn' : 'ok') +
+      pipeStepHtml(2,
+        '明细行构建 + 同比映射',
+        '第 1 遍返回 <b>' + detail.length + '</b> 行 → sourceData <b>' + source.length + '</b> 行；第 2 遍 ' + (detailYoY ? detailYoY.length : 0) + ' 行按「部门编码3」建映射，未匹配到同比行的明细 <b>' + source.filter(function (r) { return r.salesYoY === null; }).length + '</b> 行（同比三列显示空白）',
+        'ok') +
+      pipeStepHtml(3,
+        '按部组分组',
+        (function () { const parts = groupStats.map(function (s) { return s.g + ' <b>' + s.n + '</b> 行'; }); parts.push('未归组(前缀非11/12/13/15) <b>' + ungrouped + '</b> 行'); return parts.join(' ｜ '); })(),
+        ungrouped > 0 ? 'warn' : 'ok') +
+      pipeStepHtml(4,
+        '部门小计组装（每组命中 deptLevels=2 行的原始值 ↓ 可与数据库对比）',
+        groupStats.length ? groupStats.map(function (s) {
+          const head = s.g + '（' + s.n + ' 行明细，编码 ' + s.codes.join('、') + '）：<b>' +
+            (s.fallback ? '⚠️ 回退累加（deptLevels=2 无「' + s.g + '」行，按明细累加 + 反推对期算增长率）' : '取 deptLevels=2「' + s.srcName + '」行') + '</b>';
+          const body = s.fallback ? '' : rawRowTable(s.src, s.yoySrc, LV2_FIELDS, '环比行（第3遍）', '同比行（第5遍）');
+          return head + body;
+        }).join('<br>') : '无匹配部组的明细行',
+        groupStats.some(function (s) { return s.fallback; }) ? 'warn' : 'ok') +
+      pipeStepHtml(5,
+        '超市总计组装（命中 deptLevels 不传机构汇总行的原始值 ↓ 可与数据库对比）',
+        totalFallback
+          ? '⚠️ <b>回退累加</b>（机构汇总行缺失，按 ' + allDetail.length + ' 条明细累加 + 反推对期算增长率）'
+          : '取 <b>deptLevels 不传</b>（机构汇总）返回的第 1 行（共返回 ' + storeTotal.length + ' 行）' +
+            rawRowTable(srcT, yoySrcT, TOT_FIELDS, '环比行（第4遍）', '同比行（第6遍）'),
+        totalFallback ? 'warn' : 'ok');
+    document.getElementById('pipeSteps').innerHTML = pipe;
+
+    /* ---- 渲染结果表格 ---- */
+    renderTable(result);
+    const cur = document.getElementById('curStart').value + ' ~ ' + document.getElementById('curEnd').value;
+    const yoy = yoyS + ' ~ ' + yoyE, mom = momS + ' ~ ' + momE;
+    document.getElementById('metaLine').innerHTML =
+      '本期 ' + esc(cur) + ' ｜ 环比对比 ' + esc(mom) + ' ｜ 同比对比 ' + esc(yoy) +
+      ' ｜ 机构 ' + esc(orgCode) + ' ｜ 部门层级 ' + esc(deptLv) +
+      ' ｜ 明细 ' + detail.length + ' 行 → 表格 ' + result.length + ' 行（含 ' + groupStats.length + ' 个小计 + 1 个总计）';
+    setStatus('查询完成：6 遍调用全部成功，表格已按 SalesDetail.vue 逻辑重建。', 'ok');
+  } catch (e) {
+    setStatus('查询失败：' + e.message + '（请确认后端服务已启动：eureka 8761 / provider 8001，以及前端 dev server 3001）', 'err');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ================== 导出 CSV（同页面 exportExcel，全 17 列） ================== */
+document.getElementById('btnExport').addEventListener('click', function () {
+  const rows = document.querySelectorAll('#tabBody tr');
+  if (!rows.length || rows.length === 1 && rows[0].innerText.indexOf('尚未查询') >= 0) { setStatus('没有可导出的数据，请先查询', 'err'); return; }
+  const headers = ['机构名称', '部组名称', '部门编码', '部门名称', '销售额/元',
+    '同比销售额增长率', '环比销售额增长率', '毛利额/元', '同比毛利额增长率', '环比毛利额增长率', '毛利率',
+    '来客数', '同比来客数增长率', '环比来客数增长率', '客单价/元', '同比客单价增长率', '环比客单价增长率'];
+  let csv = '\uFEFF' + headers.join(',') + '\n';
+  for (const tr of rows) {
+    const tds = tr.querySelectorAll('td');
+    const values = Array.prototype.map.call(tds, function (td) { return td.innerText.trim(); });
+    csv += values.map(function (v) {
+      const s = String(v || '');
+      if (s.includes(',') || s.includes('\n') || s.includes('"')) return '"' + s.replace(/"/g, '""') + '"';
+      return s;
+    }).join(',') + '\n';
+  }
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = '销售详情1_对照_' + document.getElementById('curStart').value + '.csv';
+  link.click();
+  URL.revokeObjectURL(link.href);
+  setStatus('已导出 CSV。', 'ok');
+});
+
+document.getElementById('btnQuery').addEventListener('click', query);
+window.addEventListener('load', query);
+</script>
+</body>
+</html>
