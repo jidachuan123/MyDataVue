@@ -188,16 +188,18 @@ const storeRows = computed(() => {
 
 // ========== 合计行（Excel 合计逻辑：金额求和，派生指标按合计值公式） ==========
 function buildSubtotal(rows, groupName) {
-  const sales = rows.reduce((s, r) => s + (num(r.sales) || 0), 0)
-  const profit = rows.reduce((s, r) => s + (num(r.profit) || 0), 0)
-  const customers = rows.reduce((s, r) => s + (num(r.customers) || 0), 0)
-  const stockAmount = rows.reduce((s, r) => s + (num(r.stockAmount) || 0), 0)
-  const yoySales = rows.reduce((s, r) => s + (num(r.yoySales) || 0), 0)
-  const yoyProfit = rows.reduce((s, r) => s + (num(r.yoyProfit) || 0), 0)
-  const yoyCustomers = rows.reduce((s, r) => s + (num(r.yoyCustomers) || 0), 0)
-  const momSales = rows.reduce((s, r) => s + (num(r.momSales) || 0), 0)
-  const momProfit = rows.reduce((s, r) => s + (num(r.momProfit) || 0), 0)
-  const momCustomers = rows.reduce((s, r) => s + (num(r.momCustomers) || 0), 0)
+  // 巨野便利店配送中心(1102911)为配送中心，不当门店，整行不进门店合计
+  const calc = rows.filter(r => String(r.orgCode) !== '1102911')
+  const sales = calc.reduce((s, r) => s + (num(r.sales) || 0), 0)
+  const profit = calc.reduce((s, r) => s + (num(r.profit) || 0), 0)
+  const customers = calc.reduce((s, r) => s + (num(r.customers) || 0), 0)
+  const stockAmount = calc.reduce((s, r) => s + (num(r.stockAmount) || 0), 0)
+  const yoySales = calc.reduce((s, r) => s + (num(r.yoySales) || 0), 0)
+  const yoyProfit = calc.reduce((s, r) => s + (num(r.yoyProfit) || 0), 0)
+  const yoyCustomers = calc.reduce((s, r) => s + (num(r.yoyCustomers) || 0), 0)
+  const momSales = calc.reduce((s, r) => s + (num(r.momSales) || 0), 0)
+  const momProfit = calc.reduce((s, r) => s + (num(r.momProfit) || 0), 0)
+  const momCustomers = calc.reduce((s, r) => s + (num(r.momCustomers) || 0), 0)
   const avgPrice = avgPriceOf(sales, customers)
   const yoyAvgPrice = avgPriceOf(yoySales, yoyCustomers)
   const momAvgPrice = avgPriceOf(momSales, momCustomers)
