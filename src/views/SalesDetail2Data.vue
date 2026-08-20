@@ -151,8 +151,9 @@ const storeRows = computed(() => {
   for (const r of yoy) {
     const code = r['机构编码']
     if (code === null || code === undefined || code === '') continue
-    const it = map.get(String(code))
-    if (!it) continue
+    let it = map.get(String(code))
+    if (!it) it = getItem(code)
+    if (!it.orgName) it.orgName = r['机构名称'] || ''
     it.yoySales += num(r['对期销售金额']) || 0
     it.yoyProfit += num(r['对期含税毛利']) || 0
     it.yoyCustomers += num(r['对期交易笔数']) || 0
@@ -161,7 +162,7 @@ const storeRows = computed(() => {
   // 派生指标（公式计算）
   const rows = []
   for (const it of map.values()) {
-    if (!it.hasData) continue
+    // 全 0 门店也占位显示：不再因 hasData=false 跳过，所有返回的机构都展示一行
     const avgPrice = avgPriceOf(it.sales, it.customers)
     const yoyAvgPrice = avgPriceOf(it.yoySales, it.yoyCustomers)
     const momAvgPrice = avgPriceOf(it.momSales, it.momCustomers)
