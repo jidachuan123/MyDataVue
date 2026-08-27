@@ -162,8 +162,7 @@ const storeRows = computed(() => {
   // 派生指标（公式计算）
   const rows = []
   for (const it of map.values()) {
-    // 全 0 门店仍占位显示；但「当日库存金额=0」的门店不展示（用户要求过滤，与截图一致）
-    if (num(it.stockAmount) === 0) continue
+    // 全 0 门店也占位显示：不再因 hasData=false 跳过，所有返回的机构都展示一行
     const avgPrice = avgPriceOf(it.sales, it.customers)
     const yoyAvgPrice = avgPriceOf(it.yoySales, it.yoyCustomers)
     const momAvgPrice = avgPriceOf(it.momSales, it.momCustomers)
