@@ -917,7 +917,7 @@ function exportExcel() {
 .sales-table thead th {
   font-weight: 600;
   padding: 8px 6px;
-  border: 1px solid #d0d0d0;
+  border: 2px solid #8c8c8c;
   text-align: center;
   white-space: nowrap;
   background: #f5f5f5;
@@ -928,7 +928,7 @@ function exportExcel() {
 }
 .sales-table tbody td {
   padding: 7px 6px;
-  border: 1px solid #e8e8e8;
+  border: 1.5px solid #bfbfbf;
   text-align: center;
 }
 .sales-table tbody tr:hover {
