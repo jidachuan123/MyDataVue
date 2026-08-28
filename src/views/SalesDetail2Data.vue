@@ -34,6 +34,13 @@ function defaultQueryForm() {
 
 const queryForm = ref(defaultQueryForm())
 
+// ========== Union 特殊逻辑 ==========
+// 勾选后查询接口带 unionStockCodes，UNION ALL 追加这些「仅库存」门店（预计算表未返回的补行，
+// 仅机构编码/机构名称/当日库存金额三列，其余按 0；已返回的跳过防翻倍）。
+// 编码须与后端 application.yml 的 secondary.screenshots.sd2.union-stock-codes 保持一致。
+const UNION_STOCK_CODES = '1104901,1103801'
+const unionEnabled = ref(false)
+
 // ========== API 数据 ==========
 const apiLoading = ref(false)
 const apiError = ref('')
@@ -47,7 +54,8 @@ async function fetchData() {
     const base = {
       queryDate: queryForm.value.queryDate,
       orgCode: queryForm.value.orgCode,
-      reportType: REPORT_TYPE
+      reportType: REPORT_TYPE,
+      ...(unionEnabled.value ? { unionStockCodes: UNION_STOCK_CODES } : {})
     }
     const [momRes, yoyRes] = await Promise.all([
       request.get('/provider/sales/precompute', { ...base, comparisonType: 'MOM' }),
@@ -438,6 +446,12 @@ onMounted(() => {
         <div class="query-item">
           <label>机构编码:</label>
           <input type="text" v-model="queryForm.orgCode" placeholder="如 1101,1102,1191001" style="width:200px" />
+        </div>
+        <div class="query-item query-union" title="勾选后查询结果 UNION ALL 追加仅库存门店（1104901/1103801），预计算表未返回的补行，其余指标按 0">
+          <label class="union-label" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;">
+            <input type="checkbox" v-model="unionEnabled" style="margin:0;cursor:pointer;" />
+            <span style="white-space:nowrap;">Union特殊逻辑</span>
+          </label>
         </div>
         <div class="query-actions">
           <button class="btn-primary" @click="fetchData" :disabled="apiLoading">
