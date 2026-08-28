@@ -3,7 +3,7 @@
  * 销售详情2（数据中台）—— 预计算版（查 dw.rpt_sale_detail_precompute，秒级）
  *
  * 展示逻辑 100% 移植自 3001 SalesDetail2.vue（单页 15 列 + 当日库存金额，按机构编码聚合，
- * 巨野中心店组 / 便利组 / 其他 三组合计），数据改为查预计算表（reportType=SALE_DETAIL_2）。
+ * 按前四位分组（1101/1102/1103/1104…）+ 组尾「合计」行），数据改为查预计算表（reportType=SALE_DETAIL_2）。
  *
  * 取数：触发两次预计算表查询（comparisonType=MOM / YOY），复用 3001 的 storeRows 聚合 +
  * buildSubtotal 合计逻辑，与 3001 引擎直查对账零差异。
@@ -101,13 +101,11 @@ function rate(cur, prior) {
   return Number(((c - p) / p * 100).toFixed(2))
 }
 
-// ========== 机构分组（对应 Excel 两组合计行 + 其他） ==========
-// 巨野中心店组：1101xxx / 1191xxx；便利组：1102xxx；其余归「其他」
+// ========== 机构分组：按机构编码前四位归类（1101/1102/1103/1104…，前四位相同即同组） ==========
+// 组顺序 = 前四位升序；每组组尾出合计行，合计行统一只叫「合计」（不带组名前缀）。与 SalesDetail2.vue 同源
 function getGroup(code) {
   const s = String(code || '')
-  if (s.startsWith('1101') || s.startsWith('1191')) return '巨野中心店组'
-  if (s.startsWith('1102')) return '便利组'
-  return '其他'
+  return s.length >= 4 ? s.slice(0, 4) : (s || '其他')
 }
 
 // ========== 构建各店数据（按机构编码分组汇总） ==========
@@ -192,12 +190,14 @@ const storeRows = computed(() => {
       momAvgPriceRate: rate(avgPrice, momAvgPrice)
     })
   }
+  // 按机构编码升序（前四位相同即同组，升序后同组自然连续）
   rows.sort((a, b) => String(a.orgCode).localeCompare(String(b.orgCode)))
   return rows
 })
 
 // ========== 合计行（Excel 合计逻辑：金额求和，派生指标按合计值公式） ==========
-function buildSubtotal(rows, groupName) {
+// 合计行统一只叫「合计」（不带组名前缀，与 SalesDetail2.vue 同源）
+function buildSubtotal(rows) {
   // 巨野便利店配送中心(1102911)为配送中心，不当门店，整行不进门店合计
   const calc = rows.filter(r => String(r.orgCode) !== '1102911')
   const sales = calc.reduce((s, r) => s + (num(r.sales) || 0), 0)
@@ -216,7 +216,7 @@ function buildSubtotal(rows, groupName) {
   return {
     isSubtotal: true,
     orgCode: '',
-    orgName: groupName + ' 合计',
+    orgName: '合计',
     sales, profit, customers, stockAmount, avgPrice,
     profitRate: profitRateOf(profit, sales),
     yoySalesRate: rate(sales, yoySales),
@@ -230,23 +230,19 @@ function buildSubtotal(rows, groupName) {
   }
 }
 
-// ========== 表格数据：按组分段 + 组尾合计行 ==========
+// ========== 表格数据：按组（前四位）分段 + 组尾合计行 ==========
 const tableData = computed(() => {
   const rows = storeRows.value
   if (!rows.length) return []
   const result = []
-  const groups = ['巨野中心店组', '便利组']
+  // 组 = 出现过的前四位，升序排列（如 1101、1102、1103、1104、1191…）
+  const groups = [...new Set(rows.map(r => r.group))].sort()
   for (const g of groups) {
     const grp = rows.filter(r => r.group === g)
     if (grp.length) {
       result.push(...grp)
-      result.push(buildSubtotal(grp, g))
+      result.push(buildSubtotal(grp))
     }
-  }
-  const others = rows.filter(r => !groups.includes(r.group))
-  if (others.length) {
-    result.push(...others)
-    result.push(buildSubtotal(others, '其他'))
   }
   return result
 })
