@@ -556,7 +556,7 @@ onMounted(() => {
   text-align: center;
   padding: 20px 16px 12px;
   border-bottom: 1px solid #e8e8e8;
-  background: linear-gradient(135deg, #fff8e1 0%, #fffde7 100%);
+  background: #fff;
 }
 .page-header h2 {
   font-size: 18px;
@@ -578,23 +578,23 @@ onMounted(() => {
   font-weight: 500;
 }
 .tag.current {
-  background: #e3f2fd;
+  background: #fff;
   color: #1565c0;
 }
 .tag.loaded {
-  background: #e8f5e9;
+  background: #fff;
   color: #2e7d32;
 }
 .tag.note {
-  background: #fff3e0;
+  background: #fff;
   color: #e65100;
 }
 
 /* 预计算管理面板 */
 .manage-panel {
   padding: 14px 20px;
-  border-bottom: 2px solid #ffb300;
-  background: linear-gradient(135deg, #fffde7 0%, #fff8e1 100%);
+  border-bottom: 1px solid #e8e8e8;
+  background: #fff;
 }
 .manage-panel h3 {
   font-size: 14px;
@@ -694,7 +694,7 @@ onMounted(() => {
 .query-panel {
   padding: 14px 20px;
   border-bottom: 1px solid #e8e8e8;
-  background: #fafafa;
+  background: #fff;
 }
 .query-row {
   display: flex;
@@ -784,12 +784,12 @@ onMounted(() => {
   font-size: 12px;
 }
 .sales-table thead th {
-  font-weight: 600;
+  font-weight: 700;
   padding: 8px 6px;
-  border: 2px solid #8c8c8c;
+  border: 2px solid #000;
   text-align: center;
   white-space: nowrap;
-  background: #f5f5f5;
+  background: #fff;
   color: #333;
   position: sticky;
   top: 0;
@@ -797,17 +797,17 @@ onMounted(() => {
 }
 .sales-table tbody td {
   padding: 7px 6px;
-  border: 1.5px solid #bfbfbf;
+  border: 1px solid #000;
   text-align: center;
 }
 .sales-table tbody tr:hover {
-  background: #e3f2fd;
+  background: #f5f5f5;
 }
 .sales-table tbody tr.odd {
-  background: #fafafa;
+  background: #fff;
 }
 .sales-table tbody tr.odd:hover {
-  background: #e3f2fd;
+  background: #f5f5f5;
 }
 
 /* 列宽 */
@@ -816,25 +816,22 @@ onMounted(() => {
 .col-num { min-width: 85px; text-align: center !important; font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; }
 .col-rate { min-width: 70px; }
 
-/* 列分组颜色 */
-.col-sales { background: #fff3e0 !important; }
-.col-profit { background: #e8f5e9 !important; }
-.col-customer { background: #e3f2fd !important; }
-.col-price { background: #fce4ec !important; }
-.col-stock { background: #f3e5f5 !important; }
+/* 列分组颜色（2026-09-06 按用户 Excel 样图：销售额/毛利额/毛利率/来客数/客单价 5 个指标列整列纯黄，库存金额与增长率列白底） */
+.col-num.col-sales, .col-num.col-profit, .col-num.col-customer, .col-num.col-price { background: #FFFF00 !important; }
+.sales-table tr.subtotal td { background: #fff !important; }
 
-/* 合计行 */
+/* 合计行（2026-09-06 改白底黑框） */
 .subtotal {
-  background: linear-gradient(90deg, #fff59d 0%, #fff9c4 100%) !important;
+  background: #fff !important;
   font-weight: 700;
 }
 .subtotal td {
-  border-top: 2px solid #f57f17 !important;
-  border-bottom: 2px solid #f57f17 !important;
-  color: #4e342e !important;
+  border-top: 2px solid #000 !important;
+  border-bottom: 2px solid #000 !important;
+  color: #333 !important;
 }
 .subtotal:hover {
-  background: linear-gradient(90deg, #fff176 0%, #fff59d 100%) !important;
+  background: #f5f5f5 !important;
 }
 .subtotal-label {
   font-weight: 700;
